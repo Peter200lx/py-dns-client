@@ -94,7 +94,7 @@ class DNSName:
     s_pack_end = None
 
     def __init__(self, name_array=None, pack=None, index=None):
-        if pack and index:
+        if pack and (index or index == 0):
             orig_size, array = self.from_pack(pack, index)
             self.s_pack = pack
             self.s_pack_start = index
@@ -110,7 +110,7 @@ class DNSName:
         return cls(name_array=cls.from_dot_name(name))
 
     @classmethod
-    def init_from_pack(cls, pack, index):
+    def init_from_pack(cls, pack, index=0):
         return cls(pack=pack, index=index)
 
     def set_from_dot_name(self, name):
