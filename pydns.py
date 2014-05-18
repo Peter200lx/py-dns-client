@@ -115,6 +115,9 @@ class DNSName:
 
     def set_from_dot_name(self, name):
         self.name_array = self.from_dot_name(name)
+        self.s_pack = None
+        self.s_pack_start = None
+        self.s_pack_end = None
 
     @staticmethod
     def from_dot_name(name):
@@ -140,26 +143,23 @@ class DNSName:
     @staticmethod
     def from_pack(pack, sloc=0):
         retl = []
-        size = None
+        pack_size = None
         loc = sloc
-        if ord(pack[loc]) & 0xC0 == 0xC0:
-            if not size:
-                size = loc - sloc + 2
-            loc = ((ord(pack[loc]) << 8) | ord(pack[loc+1])) & 0x3FFF
-        l_size = ord(pack[loc])
-        while l_size > 0:
-            loc += 1
-            retl.append(pack[loc:loc+l_size])
-            loc += l_size
-            if ord(pack[loc]) & 0xC0 == 0xC0:
-                if not size:
-                    size = loc - sloc + 2
+        label_size = 1 #Prepare to read the first octet
+        while label_size > 0:
+            if ord(pack[loc]) & 0xC0 == 0xC0:  #If octet is name pointer
+                if not pack_size:                #If this is the first pointer
+                    pack_size = loc - sloc + 2   #pack_size ends w/ 2 octets
                 loc = ((ord(pack[loc]) << 8) | ord(pack[loc+1])) & 0x3FFF
-            l_size = ord(pack[loc])
-        retl.append("")
-        if not size:
-            size = l_size
-        return size, retl
+                if loc >= len(pack):
+                    raise SyntaxError("DNS name pointer outside packet")
+            label_size = ord(pack[loc])
+            loc += 1
+            retl.append(pack[loc:loc+label_size])
+            loc += label_size
+        if not pack_size:
+            pack_size = loc - sloc
+        return pack_size, retl
 
     def get_oct_name(self):
         retl = []
