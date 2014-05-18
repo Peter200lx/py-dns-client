@@ -4,8 +4,28 @@ from random import getrandbits
 from struct import Struct
 import socket
 
+class DNSRaw:
+    """Class to hold the raw packet data from the wire"""
+    s_pack = None
+    s_pack_start = None
+    s_pack_end = None
 
-class DNSHeader:
+    def set_pack(self, pack, loc=0):
+        self.set_pack = pack
+        self.s_pack_start = loc
+        self.s_pack_end = len(pack)
+
+    def get_size(self):
+        return self.s_pack_end - self.s_pack_start
+
+    def get_pack(self):
+        return self.s_pack
+
+    def to_str(self):
+        return "|".join([str(self.s_pack_start),str(self.s_pack_end),
+                        repr(self.s_pack[self.s_pack_start:self.s_pack_end])])
+
+class DNSHeader(DNSRaw):
     """Class to hold all data related to the DNS header"""
     struct = Struct("!HBBHHHH")
     id = None
@@ -21,9 +41,6 @@ class DNSHeader:
     an_count = 0
     ns_count = 0
     ar_count = 0
-    s_pack = None
-    s_pack_start = None
-    s_pack_end = None
 
     def __init__(self, header_pack=None):
         if header_pack:
@@ -86,12 +103,9 @@ class DNSHeader:
         return "\n".join([line1, line2])
 
 
-class DNSName:
+class DNSName(DNSRaw):
     """Class to hold a packed web address"""
     name_array = []
-    s_pack = None
-    s_pack_start = None
-    s_pack_end = None
 
     def __init__(self, name_array=None, pack=None, index=None):
         if pack and (index or index == 0):
@@ -181,15 +195,12 @@ class DNSName:
         return self.get_name()[0:-1] #take off . after TLD
 
 
-class DNSQuestion:
+class DNSQuestion(DNSRaw):
     """Class to represent a DNS question"""
     struct = Struct("!HH")
     q_name = None
     q_type = None
     q_class = None
-    s_pack = None
-    s_pack_start = None
-    s_pack_end = None
 
     def __init__(self, name=None, qtype=0x1, qclass=0x1, pack=None, index=None):
         if pack and index:
@@ -220,7 +231,7 @@ class DNSQuestion:
         return " | ".join(["What is", self.q_name.str_me()])
 
 
-class DNSResource:
+class DNSResource(DNSRaw):
     """Class to represent a DNS Resource (Answer, Authority, Additional)"""
     struct = Struct("!HHLH")
     a_name = None
@@ -229,9 +240,6 @@ class DNSResource:
     a_ttl = None
     r_d_length = None
     r_data = None
-    s_pack = None
-    s_pack_start = None
-    s_pack_end = None
 
     def __init__(self, pack=None, index=None):
         if pack and index:
@@ -286,14 +294,13 @@ class DNSResource:
             return "Resource type >%d< not supported" % self.a_type
 
 
-class DNSPacket:
+class DNSPacket(DNSRaw):
     """Class to represent a DNS packet, be it query or response"""
     header = DNSHeader()
     questions = []
     answers = []
     authority = []
     additional = []
-    s_pack = None
 
     def add_q(self, name, type=0x1):
         question = DNSQuestion(name=name, qtype=type)
