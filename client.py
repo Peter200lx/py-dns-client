@@ -79,7 +79,7 @@ def main():
         print "ERROR, did not recognize %s as a valid IP" % server_ip
         sys.exit(2)
     dns_port = args.port
-    #timeout = args.timeout
+    timeout = args.timeout
     #retries = args.retries
 
     #Create the packet to send
@@ -99,6 +99,8 @@ def main():
 
     #Send the packet out and wait for response from server
     with closing(socket.socket(server_family, socket.SOCK_DGRAM)) as soc:
+        if timeout > 0:
+            soc.settimeout(timeout)
         try:
             soc.sendto(q.get_pack(),(server_ip,dns_port))
         except socket.error:
