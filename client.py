@@ -3,6 +3,7 @@
 import sys
 import socket
 import argparse
+import os.path
 from contextlib import closing
 from pydns import DNSPacket
 
@@ -35,12 +36,48 @@ def print2byte(str, newline=2):
     for chunk in chunk_string(str,newline):
             print ":".join("{:02x}".format(ord(c)) for c in chunk)
 
+def valid_addr(family, str):
+    try:
+        socket.inet_pton(family,str)
+        return True
+    except socket.error:
+        return False
+
+def read_resolve():
+    if not os.path.isfile("/etc/resolv.conf"):
+        print "ERROR: /etc/resolv.conf not found"
+        return None
+    dns_servers = []
+    with open("/etc/resolv.conf","r") as resolv:
+        for line in resolv:
+            if line.startswith("nameserver"):
+                for chunk in line.split():
+                    if valid_addr(socket.AF_INET, chunk):
+                        dns_servers.append((socket.AF_INET, chunk))
+                    elif valid_addr(socket.AF_INET6, chunk):
+                        dns_servers.append((socket.AF_INET6, chunk))
+    return dns_servers
+
+
+
 def main():
     args = cli_handle()
     server_ip = args.server
     if server_ip is None:
-        print "TODO: Read /etc/resolv.conf if it exists"
-        sys.exit(1)
+        dns_servers = read_resolve()
+        if not dns_servers:
+            print "ERROR DNS server not specified and found no defaults"
+            sys.exit(1)
+        else:
+            server_ip = dns_servers[0][1] #TODO: rotate through available
+            server_family = dns_servers[0][0]
+    elif valid_addr(socket.AF_INET, server_ip):
+        server_family = socket.AF_INET
+    elif valid_addr(socket.AF_INET6, server_ip):
+        server_family = socket.AF_INET6
+    else:
+        print "ERROR, did not recognize %s as a valid IP" % server_ip
+        sys.exit(2)
     dns_port = args.port
     #timeout = args.timeout
     #retries = args.retries
@@ -61,7 +98,7 @@ def main():
         print "### END Query Packet"
 
     #Send the packet out and wait for response from server
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as soc:
+    with closing(socket.socket(server_family, socket.SOCK_DGRAM)) as soc:
         try:
             soc.sendto(q.get_pack(),(server_ip,dns_port))
         except socket.error:
