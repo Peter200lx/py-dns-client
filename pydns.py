@@ -106,21 +106,21 @@ class DNSName:
             raise SyntaxError("Invalid initializer parameters")
 
     @classmethod
-    def init_from_dot_name(cls, name):
-        return cls(name_array=cls.from_dot_name(name))
+    def init_from_name(cls, name):
+        return cls(name_array=cls.from_name(name))
 
     @classmethod
     def init_from_pack(cls, pack, index=0):
         return cls(pack=pack, index=index)
 
-    def set_from_dot_name(self, name):
-        self.name_array = self.from_dot_name(name)
+    def set_from_name(self, name):
+        self.name_array = self.from_name(name)
         self.s_pack = None
         self.s_pack_start = None
         self.s_pack_end = None
 
     @staticmethod
-    def from_dot_name(name):
+    def from_name(name):
         retl = []
         if name[-1] != ".":
             name = name + "."
@@ -130,7 +130,7 @@ class DNSName:
             retl.append(label)
         return retl
 
-    def get_dot_name(self):
+    def get_name(self):
         return ".".join(self.name_array)
 
     def set_from_pack(self, pack, index):
@@ -178,7 +178,7 @@ class DNSName:
         return self.get_oct_name()
 
     def str_me(self):
-        return self.get_dot_name()[0:-1] #take off . after TLD
+        return self.get_name()[0:-1] #take off . after TLD
 
 
 class DNSQuestion:
@@ -197,7 +197,7 @@ class DNSQuestion:
         elif pack or index:
             raise SyntaxError("pack and index both needed")
         else:
-            self.q_name = DNSName().init_from_dot_name(name)
+            self.q_name = DNSName().init_from_name(name)
             self.q_type = qtype
             self.q_class = qclass
 
