@@ -58,6 +58,19 @@ def read_resolve():
                         dns_servers.append((socket.AF_INET6, chunk))
     return dns_servers
 
+def send_query(family, proto, query, timeout, server, port):
+    with closing(socket.socket(family, proto)) as soc:
+        if timeout > 0:
+            soc.settimeout(timeout)
+        try:
+            soc.sendto(query.get_pack(),(server,port))
+        except socket.error:
+            print "ERROR: send failed"
+        reply, remote = soc.recvfrom(1024)
+        while remote != (server, port):
+            print "ERROR: response from unknown server %s" % str(remote)
+            reply, remote = soc.recvfrom(1024)
+        return reply
 
 
 def main():
@@ -98,17 +111,8 @@ def main():
         print "### END Query Packet"
 
     #Send the packet out and wait for response from server
-    with closing(socket.socket(server_family, socket.SOCK_DGRAM)) as soc:
-        if timeout > 0:
-            soc.settimeout(timeout)
-        try:
-            soc.sendto(q.get_pack(),(server_ip,dns_port))
-        except socket.error:
-            print "send failed"
-        reply, remote = soc.recvfrom(1024)
-        while remote != (server_ip, dns_port):
-            print "ERROR: response from unknown server %s" % str(remote)
-            reply, remote = soc.recvfrom(1024)
+    reply = send_query(server_family, socket.SOCK_DGRAM, q, timeout,
+                        server_ip, dns_port)
 
     if args.debug >= 2:
         print str(len(reply)), " ", reply
