@@ -120,7 +120,13 @@ def main():
 
     #Parse the reply packet
     r = DNSPacket()
-    r.from_pack(reply)
+    try:
+        r.from_pack(reply)
+    except ValueError:
+        print "UDP packet truncated, retrying with TCP"
+        reply = send_query(server_family, socket.SOCK_STREAM, q,
+                            timeout, server_ip, dns_port)
+        r.from_pack(reply)
 
     if args.debug >= 1:
         print "### Reply Packet"
