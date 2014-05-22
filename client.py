@@ -93,7 +93,7 @@ def main():
         sys.exit(2)
     dns_port = args.port
     timeout = args.timeout
-    #retries = args.retries
+    retries = args.retries
 
     #Create the packet to send
     q = DNSPacket()
@@ -111,8 +111,19 @@ def main():
         print "### END Query Packet"
 
     #Send the packet out and wait for response from server
-    reply = send_query(server_family, socket.SOCK_DGRAM, q, timeout,
-                        server_ip, dns_port)
+    for attempt in range(retries):
+        try:
+            reply = send_query(server_family, socket.SOCK_DGRAM, q, timeout,
+                                server_ip, dns_port)
+            break
+        except socket.timeout:
+            output_str = "Attempt %d/%d timed out," % (attempt + 1, retries)
+            if (attempt + 1) < retries:
+                print "".join([output_str," retrying..."])
+            else:
+                print "".join([output_str," quitting"])
+                sys.exit(3)
+
 
     if args.debug >= 2:
         print str(len(reply)), " ", reply
