@@ -1,11 +1,13 @@
 """Module for handling DNS Packets"""
 
+import socket
 from random import getrandbits
 from struct import Struct
-import socket
+
 
 class DNSRaw:
     """Class to hold the raw packet data from the wire"""
+
     s_pack = None
     s_pack_start = None
     s_pack_end = None
@@ -22,20 +24,27 @@ class DNSRaw:
         return self.s_pack
 
     def to_str(self):
-        return "|".join([str(self.s_pack_start),str(self.s_pack_end),
-                        repr(self.s_pack[self.s_pack_start:self.s_pack_end])])
+        return "|".join(
+            [
+                str(self.s_pack_start),
+                str(self.s_pack_end),
+                repr(self.s_pack[self.s_pack_start : self.s_pack_end]),
+            ]
+        )
+
 
 class DNSHeader(DNSRaw):
     """Class to hold all data related to the DNS header"""
+
     struct = Struct("!HBBHHHH")
     id = None
     notquery = False
     opcode = 0
-    AA = False #Authoratative Answer
-    TC = False #Truncated
-    RD = False #Recursion Desired
-    RA = False #Recursion Available
-    Z = 0 #?
+    AA = False  # Authoratative Answer
+    TC = False  # Truncated
+    RD = False  # Recursion Desired
+    RA = False  # Recursion Available
+    Z = 0  # ?
     r_code = 0
     qd_count = 0
     an_count = 0
@@ -47,36 +56,53 @@ class DNSHeader(DNSRaw):
             self.set_from_pack(header_pack)
         else:
             self.id = getrandbits(16)
-            self.RD = True #Recursion Desired
+            self.RD = True  # Recursion Desired
 
     def get_size(self):
         return self.struct.size
 
     def get_pack(self):
-        bits16_23 = self.notquery << 7 | ((self.opcode & 0xF) << 3) \
-                    | self.AA << 2 | self.TC << 1 | self.RD
+        bits16_23 = (
+            self.notquery << 7
+            | ((self.opcode & 0xF) << 3)
+            | self.AA << 2
+            | self.TC << 1
+            | self.RD
+        )
         bits24_31 = self.RA << 7 | ((self.Z & 0x7) << 4) | self.r_code
-        return self.struct.pack(self.id, bits16_23, bits24_31,
-                                self.qd_count, self.an_count,
-                                self.ns_count, self.ar_count)
+        return self.struct.pack(
+            self.id,
+            bits16_23,
+            bits24_31,
+            self.qd_count,
+            self.an_count,
+            self.ns_count,
+            self.ar_count,
+        )
 
     def set_from_pack(self, packed):
         self.s_pack_start = 0
         self.s_pack_end = self.struct.size
         self.s_pack = packed
-        (self.id, bits16_23, bits24_31, self.qd_count, \
-            self.an_count, self.ns_count, \
-            self.ar_count) = self.struct.unpack(packed[0:self.struct.size])
+        (
+            self.id,
+            bits16_23,
+            bits24_31,
+            self.qd_count,
+            self.an_count,
+            self.ns_count,
+            self.ar_count,
+        ) = self.struct.unpack(packed[0 : self.struct.size])
 
-        self.notquery = bool(bits16_23 & (0x1<<7))
-        self.opcode = ((bits16_23 & (0xF<<3)) >> 3)
-        self.AA = bool(bits16_23 & (0x1<<2))
-        self.TC = bool(bits16_23 & (0x1<<1))
+        self.notquery = bool(bits16_23 & (0x1 << 7))
+        self.opcode = (bits16_23 & (0xF << 3)) >> 3
+        self.AA = bool(bits16_23 & (0x1 << 2))
+        self.TC = bool(bits16_23 & (0x1 << 1))
         self.RD = bool(bits16_23 & 0x1)
 
-        self.RA = bool(bits24_31 & (0x1<<7))
-        self.Z = ((bits24_31 & (0x7<<4)) >> 4)
-        self.r_code = (bits24_31 & 0xF)
+        self.RA = bool(bits24_31 & (0x1 << 7))
+        self.Z = (bits24_31 & (0x7 << 4)) >> 4
+        self.r_code = bits24_31 & 0xF
 
     def str_me(self):
         ret_array = ["id = %d" % self.id]
@@ -105,6 +131,7 @@ class DNSHeader(DNSRaw):
 
 class DNSName(DNSRaw):
     """Class to hold a packed web address"""
+
     name_array = []
 
     def __init__(self, name_array=None, pack=None, index=None):
@@ -159,17 +186,19 @@ class DNSName(DNSRaw):
         retl = []
         pack_size = None
         loc = sloc
-        label_size = 1 #Prepare to read the first octet
+        label_size = 1  # Prepare to read the first octet
         while label_size > 0:
-            if ord(pack[loc:loc+1]) & 0xC0 == 0xC0:  #If octet is name pointer
-                if not pack_size:                #If this is the first pointer
-                    pack_size = loc - sloc + 2   #pack_size ends w/ 2 octets
-                loc = ((ord(pack[loc:loc+1]) << 8) | ord(pack[loc+1:loc+2])) & 0x3FFF
+            if ord(pack[loc : loc + 1]) & 0xC0 == 0xC0:  # If octet is name pointer
+                if not pack_size:  # If this is the first pointer
+                    pack_size = loc - sloc + 2  # pack_size ends w/ 2 octets
+                loc = (
+                    (ord(pack[loc : loc + 1]) << 8) | ord(pack[loc + 1 : loc + 2])
+                ) & 0x3FFF
                 if loc >= len(pack):
                     raise SyntaxError("DNS name pointer outside packet")
-            label_size = ord(pack[loc:loc+1])
+            label_size = ord(pack[loc : loc + 1])
             loc += 1
-            retl.append(pack[loc:loc+label_size])
+            retl.append(pack[loc : loc + label_size])
             loc += label_size
         if not pack_size:
             pack_size = loc - sloc
@@ -192,11 +221,12 @@ class DNSName(DNSRaw):
         return self.get_oct_name()
 
     def str_me(self):
-        return (self.get_name()[0:-1]).decode() #take off . after TLD
+        return (self.get_name()[0:-1]).decode()  # take off . after TLD
 
 
 class DNSQuestion(DNSRaw):
     """Class to represent a DNS question"""
+
     struct = Struct("!HH")
     q_name = None
     q_type = None
@@ -204,7 +234,7 @@ class DNSQuestion(DNSRaw):
 
     def __init__(self, name=None, qtype=0x1, qclass=0x1, pack=None, index=None):
         if pack and index:
-            self.from_pack(pack,index)
+            self.from_pack(pack, index)
         elif pack or index:
             raise SyntaxError("pack and index both needed")
         else:
@@ -216,8 +246,9 @@ class DNSQuestion(DNSRaw):
         return self.q_name.get_size() + self.struct.size
 
     def get_pack(self):
-        return b"".join([self.q_name.get_pack(), self.struct.pack(self.q_type,
-                                                         self.q_class)])
+        return b"".join(
+            [self.q_name.get_pack(), self.struct.pack(self.q_type, self.q_class)]
+        )
 
     def from_pack(self, pack, index):
         self.s_pack = pack
@@ -233,6 +264,7 @@ class DNSQuestion(DNSRaw):
 
 class DNSResource(DNSRaw):
     """Class to represent a DNS Resource (Answer, Authority, Additional)"""
+
     struct = Struct("!HHLH")
     a_name = None
     a_type = None
@@ -251,21 +283,30 @@ class DNSResource(DNSRaw):
         return self.a_name.get_size() + self.struct.size + self.r_d_length
 
     def get_pack(self):
-        return "".join([self.a_name.get_pack(),
-                        self.struct.pack(self.a_type, self.a_class,
-                                         self.a_ttl, self.r_d_length),
-                        self.r_data])
+        return "".join(
+            [
+                self.a_name.get_pack(),
+                self.struct.pack(
+                    self.a_type, self.a_class, self.a_ttl, self.r_d_length
+                ),
+                self.r_data,
+            ]
+        )
 
     def from_pack(self, pack, index):
         self.s_pack = pack
         self.s_pack_start = index
         self.a_name = DNSName().init_from_pack(pack, index)
         index += self.a_name.get_size()
-        (self.a_type, self.a_class, self.a_ttl,
-            self.r_d_length) = self.struct.unpack_from(pack, index)
+        (
+            self.a_type,
+            self.a_class,
+            self.a_ttl,
+            self.r_d_length,
+        ) = self.struct.unpack_from(pack, index)
         index += self.struct.size
         if self.a_type == 0x0001:
-            self.r_data = pack[index:index+self.r_d_length]
+            self.r_data = pack[index : index + self.r_d_length]
             index += self.r_d_length
             if self.r_d_length != 4:
                 raise SyntaxError("Type is A, length isn't 4 bytes")
@@ -277,25 +318,32 @@ class DNSResource(DNSRaw):
     def str_me(self):
         if self.a_type == 0x0001:
             if self.r_d_length == 4:
-                return "Host %s | A: %s | %d" % (self.a_name.str_me(),
-                                                 socket.inet_ntoa(self.r_data),
-                                                 self.a_ttl)
+                return "Host %s | A: %s | %d" % (
+                    self.a_name.str_me(),
+                    socket.inet_ntoa(self.r_data),
+                    self.a_ttl,
+                )
             else:
                 return "Badly formed A type response"
         elif self.a_type == 0x0002:
-            return "Host %s | NS: %s | %d" % (self.a_name.str_me(),
-                                                self.r_data.str_me(),
-                                                self.a_ttl)
+            return "Host %s | NS: %s | %d" % (
+                self.a_name.str_me(),
+                self.r_data.str_me(),
+                self.a_ttl,
+            )
         elif self.a_type == 0x0005:
-            return "Host %s | CNAME: %s | %d" % (self.a_name.str_me(),
-                                                self.r_data.str_me(),
-                                                self.a_ttl)
+            return "Host %s | CNAME: %s | %d" % (
+                self.a_name.str_me(),
+                self.r_data.str_me(),
+                self.a_ttl,
+            )
         else:
             return "Resource type >%d< not supported" % self.a_type
 
 
 class DNSPacket(DNSRaw):
     """Class to represent a DNS packet, be it query or response"""
+
     header = DNSHeader()
     questions = []
     answers = []
@@ -372,8 +420,9 @@ class DNSPacket(DNSRaw):
 
     def str_answers(self):
         if self.header.r_code == 0:
-            ret_array = ["--- Answer is%s Authoratative ---" % \
-                                ("" if self.header.AA else " not")]
+            ret_array = [
+                "--- Answer is%s Authoratative ---" % ("" if self.header.AA else " not")
+            ]
             for i in range(self.header.an_count):
                 ret_array.append(self.answers[i].str_me())
         elif self.header.r_code == 1:
@@ -391,4 +440,3 @@ class DNSPacket(DNSRaw):
         else:
             ret_array = ["--- Unknown Error ---"]
         return "\n".join(ret_array)
-
