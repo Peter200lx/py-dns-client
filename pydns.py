@@ -141,11 +141,11 @@ class DNSName(DNSRaw):
         for label in name.split("."):
             if len(label) > 65:
                 raise SyntaxError("Labels can't be longer then 65 chars")
-            retl.append(label)
+            retl.append(label.encode())
         return retl
 
     def get_name(self):
-        return ".".join(self.name_array)
+        return b".".join(self.name_array)
 
     def set_from_pack(self, pack, index):
         orig_size, array = self.from_pack(pack, index)
@@ -161,13 +161,13 @@ class DNSName(DNSRaw):
         loc = sloc
         label_size = 1 #Prepare to read the first octet
         while label_size > 0:
-            if ord(pack[loc]) & 0xC0 == 0xC0:  #If octet is name pointer
+            if ord(pack[loc:loc+1]) & 0xC0 == 0xC0:  #If octet is name pointer
                 if not pack_size:                #If this is the first pointer
                     pack_size = loc - sloc + 2   #pack_size ends w/ 2 octets
-                loc = ((ord(pack[loc]) << 8) | ord(pack[loc+1])) & 0x3FFF
+                loc = ((ord(pack[loc:loc+1]) << 8) | ord(pack[loc+1:loc+2])) & 0x3FFF
                 if loc >= len(pack):
                     raise SyntaxError("DNS name pointer outside packet")
-            label_size = ord(pack[loc])
+            label_size = ord(pack[loc:loc+1])
             loc += 1
             retl.append(pack[loc:loc+label_size])
             loc += label_size
@@ -178,9 +178,9 @@ class DNSName(DNSRaw):
     def get_oct_name(self):
         retl = []
         for label in self.name_array:
-            retl.append(chr(len(label)))
+            retl.append(chr(len(label)).encode())
             retl.append(label)
-        return "".join(retl)
+        return b"".join(retl)
 
     def get_size(self):
         if self.s_pack:
@@ -192,7 +192,7 @@ class DNSName(DNSRaw):
         return self.get_oct_name()
 
     def str_me(self):
-        return self.get_name()[0:-1] #take off . after TLD
+        return (self.get_name()[0:-1]).decode() #take off . after TLD
 
 
 class DNSQuestion(DNSRaw):
@@ -216,7 +216,7 @@ class DNSQuestion(DNSRaw):
         return self.q_name.get_size() + self.struct.size
 
     def get_pack(self):
-        return "".join([self.q_name.get_pack(), self.struct.pack(self.q_type,
+        return b"".join([self.q_name.get_pack(), self.struct.pack(self.q_type,
                                                          self.q_class)])
 
     def from_pack(self, pack, index):
@@ -329,7 +329,7 @@ class DNSPacket(DNSRaw):
             retl.append(self.authority[i].get_pack())
         for i in range(self.header.ar_count):
             retl.append(self.additional[i].get_pack())
-        return "".join(retl)
+        return b"".join(retl)
 
     def from_pack(self, pack):
         self.s_pack = pack

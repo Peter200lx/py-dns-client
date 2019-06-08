@@ -7,13 +7,14 @@ import os.path
 from contextlib import closing
 from pydns import DNSPacket
 
-DNS_CLIENT_VERSION = "0.1"
+DNS_CLIENT_VERSION = "0.2"
 
 def cli_handle():
     """Process CLI input"""
-    parser = argparse.ArgumentParser(version=DNS_CLIENT_VERSION,
-                                     description="DNS query utility")
+    parser = argparse.ArgumentParser(description="DNS query utility")
 
+    parser.add_argument("-v", "--version", action="version",
+                        version=DNS_CLIENT_VERSION)
     parser.add_argument("hostname", help="hostname to lookup")
     parser.add_argument("-s", "--server", help="DNS server to query")
     parser.add_argument("-p", "--port", help="DNS server port",
@@ -34,7 +35,7 @@ def chunk_string(str, num):
 
 def print2byte(str, newline=2):
     for chunk in chunk_string(str,newline):
-            print ":".join("{:02x}".format(ord(c)) for c in chunk)
+            print(":".join("{:02x}".format(c if isinstance(c, int) else ord(c)) for c in chunk))
 
 def valid_addr(family, str):
     try:
@@ -45,7 +46,7 @@ def valid_addr(family, str):
 
 def read_resolve():
     if not os.path.isfile("/etc/resolv.conf"):
-        print "ERROR: /etc/resolv.conf not found"
+        print("ERROR: /etc/resolv.conf not found")
         return None
     dns_servers = []
     with open("/etc/resolv.conf","r") as resolv:
@@ -65,10 +66,10 @@ def send_query(family, proto, query, timeout, server, port):
         try:
             soc.sendto(query.get_pack(),(server,port))
         except socket.error:
-            print "ERROR: send failed"
+            print("ERROR: send failed")
         reply, remote = soc.recvfrom(1024)
         while remote != (server, port):
-            print "ERROR: response from unknown server %s" % str(remote)
+            print("ERROR: response from unknown server %s" % str(remote))
             reply, remote = soc.recvfrom(1024)
         return reply
 
@@ -79,7 +80,7 @@ def main():
     if server_ip is None:
         dns_servers = read_resolve()
         if not dns_servers:
-            print "ERROR DNS server not specified and found no defaults"
+            print("ERROR DNS server not specified and found no defaults")
             sys.exit(1)
         else:
             server_ip = dns_servers[0][1] #TODO: rotate through available
@@ -89,7 +90,7 @@ def main():
     elif valid_addr(socket.AF_INET6, server_ip):
         server_family = socket.AF_INET6
     else:
-        print "ERROR, did not recognize %s as a valid IP" % server_ip
+        print("ERROR, did not recognize %s as a valid IP" % server_ip)
         sys.exit(2)
     dns_port = args.port
     timeout = args.timeout
@@ -98,17 +99,17 @@ def main():
     #Create the packet to send
     q = DNSPacket()
     if args.debug >= 3:
-        print q.header.str_me()
+        print(q.header.str_me())
         print2byte(q.header.get_pack())
     q.add_q(args.hostname)
     if args.debug >= 2:
         tmp_pack = q.get_pack()
-        print str(len(tmp_pack)), " ", tmp_pack
+        print(b" ".join((bytes(len(tmp_pack)), tmp_pack)))
         print2byte(tmp_pack, newline=6)
     if args.debug >= 1:
-        print "### Query Packet"
-        print q.str_me()
-        print "### END Query Packet"
+        print("### Query Packet")
+        print(q.str_me())
+        print("### END Query Packet")
 
     #Send the packet out and wait for response from server
     for attempt in range(retries):
@@ -119,14 +120,14 @@ def main():
         except socket.timeout:
             output_str = "Attempt %d/%d timed out," % (attempt + 1, retries)
             if (attempt + 1) < retries:
-                print "".join([output_str," retrying..."])
+                print(" ".join([output_str, "retrying..."]))
             else:
-                print "".join([output_str," quitting"])
+                print(" ".join([output_str, "quitting"]))
                 sys.exit(3)
 
 
     if args.debug >= 2:
-        print str(len(reply)), " ", reply
+        print(b" ".join((bytes(len(reply)), reply)))
         print2byte(reply, newline=6)
 
     #Parse the reply packet
@@ -134,16 +135,16 @@ def main():
     try:
         r.from_pack(reply)
     except ValueError:
-        print "UDP packet truncated, retrying with TCP"
+        print("UDP packet truncated, retrying with TCP")
         reply = send_query(server_family, socket.SOCK_STREAM, q,
                             timeout, server_ip, dns_port)
         r.from_pack(reply)
 
     if args.debug >= 1:
-        print "### Reply Packet"
-        print r.str_me()
-        print "### END Reply Packet"
-    print r.str_answers()
+        print("### Reply Packet")
+        print(r.str_me())
+        print("### END Reply Packet")
+    print(r.str_answers())
 
     return 0
 
