@@ -40,7 +40,7 @@ class DNSHeader(DNSRaw):
     id = None
     notquery = False
     opcode = 0
-    AA = False  # Authoratative Answer
+    AA = False  # Authoritative Answer
     TC = False  # Truncated
     RD = False  # Recursion Desired
     RA = False  # Recursion Available
@@ -112,7 +112,7 @@ class DNSHeader(DNSRaw):
             ret_array.append("Query")
         ret_array.append("opcode = %d" % self.opcode)
         if self.AA:
-            ret_array.append("Authoratative Answer")
+            ret_array.append("Authoritative Answer")
         if self.TC:
             ret_array.append("Truncated")
         if self.RD:
@@ -120,11 +120,13 @@ class DNSHeader(DNSRaw):
         if self.RA:
             ret_array.append("Recursion Available")
         line1 = " | ".join(ret_array)
-        ret_array = ["return_code = %d" % self.r_code]
-        ret_array.append("questions = %d" % self.qd_count)
-        ret_array.append("answers = %d" % self.an_count)
-        ret_array.append("authority = %d" % self.ns_count)
-        ret_array.append("additional = %d" % self.ar_count)
+        ret_array = [
+            "return_code = %d" % self.r_code,
+            "questions = %d" % self.qd_count,
+            "answers = %d" % self.an_count,
+            "authority = %d" % self.ns_count,
+            "additional = %d" % self.ar_count,
+        ]
         line2 = " | ".join(ret_array)
         return "\n".join([line1, line2])
 
@@ -350,8 +352,8 @@ class DNSPacket(DNSRaw):
     authority = []
     additional = []
 
-    def add_q(self, name, type=0x1):
-        question = DNSQuestion(name=name, qtype=type)
+    def add_q(self, name, q_type=0x1):
+        question = DNSQuestion(name=name, qtype=q_type)
         self.questions.append(question)
         self.header.qd_count += 1
 
@@ -421,7 +423,7 @@ class DNSPacket(DNSRaw):
     def str_answers(self):
         if self.header.r_code == 0:
             ret_array = [
-                "--- Answer is%s Authoratative ---" % ("" if self.header.AA else " not")
+                "--- Answer is%s Authoritative ---" % ("" if self.header.AA else " not")
             ]
             for i in range(self.header.an_count):
                 ret_array.append(self.answers[i].str_me())

@@ -33,13 +33,13 @@ def cli_handle():
     return args
 
 
-def chunk_string(str, num):
-    for loc in range(0, len(str), num):
-        yield str[loc : loc + num]
+def chunk_string(string, num):
+    for loc in range(0, len(string), num):
+        yield string[loc : loc + num]
 
 
-def print2byte(str, newline=2):
-    for chunk in chunk_string(str, newline):
+def print2byte(string, newline=2):
+    for chunk in chunk_string(string, newline):
         print(
             ":".join(
                 "{:02x}".format(c if isinstance(c, int) else ord(c)) for c in chunk
@@ -47,9 +47,9 @@ def print2byte(str, newline=2):
         )
 
 
-def valid_addr(family, str):
+def valid_addr(family, string):
     try:
-        socket.inet_pton(family, str)
+        socket.inet_pton(family, string)
         return True
     except socket.error:
         return False
