@@ -80,7 +80,7 @@ def send_query(family, proto, query, timeout, server, port):
         except socket.error:
             print("ERROR: send failed")
         reply, remote = soc.recvfrom(1024)
-        while remote != (server, port):
+        while (remote[0], remote[1]) != (server, port):
             print("ERROR: response from unknown server %s" % str(remote))
             reply, remote = soc.recvfrom(1024)
         return reply
