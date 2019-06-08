@@ -13,7 +13,7 @@ class DNSRaw:
     s_pack_end = None
 
     def set_pack(self, pack, loc=0):
-        self.set_pack = pack
+        self.s_pack = pack
         self.s_pack_start = loc
         self.s_pack_end = len(pack)
 
