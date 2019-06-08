@@ -23,7 +23,7 @@ class DNSRaw:
     def get_pack(self):
         return self.s_pack
 
-    def to_str(self):
+    def __str__(self):
         return "|".join(
             [
                 str(self.s_pack_start),
@@ -104,7 +104,7 @@ class DNSHeader(DNSRaw):
         self.Z = (bits24_31 & (0x7 << 4)) >> 4
         self.r_code = bits24_31 & 0xF
 
-    def str_me(self):
+    def __str__(self):
         ret_array = ["id = %d" % self.id]
         if self.notquery:
             ret_array.append("Answer")
@@ -222,7 +222,7 @@ class DNSName(DNSRaw):
     def get_pack(self):
         return self.get_oct_name()
 
-    def str_me(self):
+    def __str__(self):
         return (self.get_name()[0:-1]).decode()  # take off . after TLD
 
 
@@ -260,8 +260,8 @@ class DNSQuestion(DNSRaw):
         (self.q_type, self.q_class) = self.struct.unpack_from(pack, index)
         self.s_pack_end = index + self.struct.size
 
-    def str_me(self):
-        return " | ".join(["What is", self.q_name.str_me()])
+    def __str__(self):
+        return " | ".join(["What is", str(self.q_name)])
 
 
 class DNSResource(DNSRaw):
@@ -317,11 +317,11 @@ class DNSResource(DNSRaw):
             index += self.r_data.get_size()
         self.s_pack_end = index
 
-    def str_me(self):
+    def __str__(self):
         if self.a_type == 0x0001:
             if self.r_d_length == 4:
                 return "Host %s | A: %s | %d" % (
-                    self.a_name.str_me(),
+                    str(self.a_name),
                     socket.inet_ntoa(self.r_data),
                     self.a_ttl,
                 )
@@ -329,14 +329,14 @@ class DNSResource(DNSRaw):
                 return "Badly formed A type response"
         elif self.a_type == 0x0002:
             return "Host %s | NS: %s | %d" % (
-                self.a_name.str_me(),
-                self.r_data.str_me(),
+                str(self.a_name),
+                str(self.r_data),
                 self.a_ttl,
             )
         elif self.a_type == 0x0005:
             return "Host %s | CNAME: %s | %d" % (
-                self.a_name.str_me(),
-                self.r_data.str_me(),
+                str(self.a_name),
+                str(self.r_data),
                 self.a_ttl,
             )
         else:
@@ -400,24 +400,24 @@ class DNSPacket(DNSRaw):
             self.additional.append(DNSResource(pack=pack, index=loc))
             loc += self.additional[i].get_size()
 
-    def str_me(self):
-        ret_array = [self.header.str_me()]
+    def __str__(self):
+        ret_array = [str(self.header)]
         if self.header.qd_count:
             ret_array.append("Question:")
         for i in range(self.header.qd_count):
-            ret_array.append(self.questions[i].str_me())
+            ret_array.append(str(self.questions[i]))
         if self.header.an_count:
             ret_array.append("Answer:")
         for i in range(self.header.an_count):
-            ret_array.append(self.answers[i].str_me())
+            ret_array.append(str(self.answers[i]))
         if self.header.ns_count:
             ret_array.append("Authority:")
         for i in range(self.header.ns_count):
-            ret_array.append(self.authority[i].str_me())
+            ret_array.append(str(self.authority[i]))
         if self.header.ar_count:
             ret_array.append("Additional:")
         for i in range(self.header.ar_count):
-            ret_array.append(self.additional[i].str_me())
+            ret_array.append(str(self.additional[i]))
         return "\n".join(ret_array)
 
     def str_answers(self):
@@ -426,7 +426,7 @@ class DNSPacket(DNSRaw):
                 "--- Answer is%s Authoritative ---" % ("" if self.header.AA else " not")
             ]
             for i in range(self.header.an_count):
-                ret_array.append(self.answers[i].str_me())
+                ret_array.append(str(self.answers[i]))
         elif self.header.r_code == 1:
             ret_array = ["--- Format Error ---"]
         elif self.header.r_code == 2:

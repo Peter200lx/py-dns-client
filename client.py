@@ -111,7 +111,7 @@ def main():
     # Create the packet to send
     q = DNSPacket()
     if args.debug >= 3:
-        print(q.header.str_me())
+        print(q.header)
         print2byte(q.header.get_pack())
     q.add_q(args.hostname)
     if args.debug >= 2:
@@ -120,7 +120,7 @@ def main():
         print2byte(tmp_pack, newline=6)
     if args.debug >= 1:
         print("### Query Packet")
-        print(q.str_me())
+        print(q)
         print("### END Query Packet")
 
     # Send the packet out and wait for response from server
@@ -155,7 +155,7 @@ def main():
 
     if args.debug >= 1:
         print("### Reply Packet")
-        print(r.str_me())
+        print(r)
         print("### END Reply Packet")
     print(r.str_answers())
 
