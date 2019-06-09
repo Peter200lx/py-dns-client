@@ -250,7 +250,7 @@ class DNSQuestion(DNSRaw):
         elif pack or index:
             raise SyntaxError("pack and index both needed")
         else:
-            self.q_name = DNSName().init_from_name(name)
+            self.q_name = DNSName.init_from_name(name)
             self.q_type = qtype
             self.q_class = qclass
 
@@ -265,7 +265,7 @@ class DNSQuestion(DNSRaw):
     def from_pack(self, pack, index):
         self.s_pack = pack
         self.s_pack_start = index
-        self.q_name = DNSName().init_from_pack(pack, index)
+        self.q_name = DNSName.init_from_pack(pack, index)
         index += self.q_name.get_size()
         (self.q_type, self.q_class) = self.struct.unpack_from(pack, index)
         self.s_pack_end = index + self.struct.size
@@ -308,7 +308,7 @@ class DNSResource(DNSRaw):
     def from_pack(self, pack, index):
         self.s_pack = pack
         self.s_pack_start = index
-        self.a_name = DNSName().init_from_pack(pack, index)
+        self.a_name = DNSName.init_from_pack(pack, index)
         index += self.a_name.get_size()
         (
             self.a_type,
@@ -323,7 +323,7 @@ class DNSResource(DNSRaw):
             if self.r_d_length != 4:
                 raise SyntaxError("Type is A, length isn't 4 bytes")
         if self.a_type == 0x0002 or self.a_type == 0x0005:
-            self.r_data = DNSName().init_from_pack(pack, index)
+            self.r_data = DNSName.init_from_pack(pack, index)
             index += self.r_data.get_size()
         self.s_pack_end = index
 
