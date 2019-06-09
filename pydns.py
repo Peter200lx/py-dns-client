@@ -12,16 +12,19 @@ class DNSRaw:
     s_pack_start = None
     s_pack_end = None
 
-    def set_pack(self, pack, loc=0):
+    def set_pack(self, pack, loc=0, length=None):
         self.s_pack = pack
         self.s_pack_start = loc
-        self.s_pack_end = len(pack)
+        if length is None:
+            self.s_pack_end = len(pack)
+        else:
+            self.s_pack_end = self.s_pack_start + length
 
     def get_size(self):
         return self.s_pack_end - self.s_pack_start
 
     def get_pack(self):
-        return self.s_pack
+        return self.s_pack[self.s_pack_start : self.s_pack_end]
 
     def __str__(self):
         return "|".join(
@@ -226,6 +229,13 @@ class DNSName(DNSRaw):
         return (self.get_name()[0:-1]).decode()  # take off . after TLD
 
 
+class DNSIPv4(DNSRaw):
+    """Class to hold an IPv4 address"""
+
+    def __init__(self, *args, **kwargs):
+        self.set_pack(*args, **kwargs)
+
+
 class DNSQuestion(DNSRaw):
     """Class to represent a DNS question"""
 
@@ -285,13 +295,13 @@ class DNSResource(DNSRaw):
         return self.a_name.get_size() + self.struct.size + self.r_d_length
 
     def get_pack(self):
-        return "".join(
+        return b"".join(
             [
                 self.a_name.get_pack(),
                 self.struct.pack(
                     self.a_type, self.a_class, self.a_ttl, self.r_d_length
                 ),
-                self.r_data,
+                self.r_data.get_pack(),
             ]
         )
 
@@ -308,7 +318,7 @@ class DNSResource(DNSRaw):
         ) = self.struct.unpack_from(pack, index)
         index += self.struct.size
         if self.a_type == 0x0001:
-            self.r_data = pack[index : index + self.r_d_length]
+            self.r_data = DNSIPv4(pack, loc=index, length=self.r_d_length)
             index += self.r_d_length
             if self.r_d_length != 4:
                 raise SyntaxError("Type is A, length isn't 4 bytes")
@@ -322,7 +332,7 @@ class DNSResource(DNSRaw):
             if self.r_d_length == 4:
                 return "Host %s | A: %s | %d" % (
                     str(self.a_name),
-                    socket.inet_ntoa(self.r_data),
+                    socket.inet_ntoa(self.r_data.get_pack()),
                     self.a_ttl,
                 )
             else:
