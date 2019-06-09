@@ -17,6 +17,9 @@ def cli_handle():
 
     parser.add_argument("-v", "--version", action="version", version=DNS_CLIENT_VERSION)
     parser.add_argument("hostname", help="hostname to lookup")
+    parser.add_argument(
+        "querytype", help="Specify type of query", nargs="?", type=int, default=1
+    )
     parser.add_argument("-s", "--server", help="DNS server to query")
     parser.add_argument("-p", "--port", help="DNS server port", type=int, default=53)
     parser.add_argument(
@@ -113,7 +116,7 @@ def main():
     if args.debug >= 3:
         print(q.header)
         print2byte(q.header.get_pack())
-    q.add_q(args.hostname)
+    q.add_q(args.hostname, q_type=args.querytype)
     if args.debug >= 2:
         tmp_pack = q.get_pack()
         print(b" ".join((bytes(len(tmp_pack)), tmp_pack)))
@@ -143,15 +146,14 @@ def main():
         print2byte(reply, newline=6)
 
     # Parse the reply packet
-    r = DNSPacket()
     try:
-        r.from_pack(reply)
+        r = DNSPacket(reply)
     except ValueError:
         print("UDP packet truncated, retrying with TCP")
         reply = send_query(
             server_family, socket.SOCK_STREAM, q, timeout, server_ip, dns_port
         )
-        r.from_pack(reply)
+        r = DNSPacket(reply)
 
     if args.debug >= 1:
         print("### Reply Packet")

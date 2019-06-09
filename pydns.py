@@ -229,8 +229,8 @@ class DNSName(DNSRaw):
         return (self.get_name()[0:-1]).decode()  # take off . after TLD
 
 
-class DNSIPv4(DNSRaw):
-    """Class to hold an IPv4 address"""
+class DNSIP(DNSRaw):
+    """Class to hold an IP address"""
 
     def __init__(self, *args, **kwargs):
         self.set_pack(*args, **kwargs)
@@ -318,13 +318,18 @@ class DNSResource(DNSRaw):
         ) = self.struct.unpack_from(pack, index)
         index += self.struct.size
         if self.a_type == 0x0001:
-            self.r_data = DNSIPv4(pack, loc=index, length=self.r_d_length)
-            index += self.r_d_length
             if self.r_d_length != 4:
                 raise SyntaxError("Type is A, length isn't 4 bytes")
-        if self.a_type == 0x0002 or self.a_type == 0x0005:
+            self.r_data = DNSIP(pack, loc=index, length=self.r_d_length)
+            index += self.r_d_length
+        elif self.a_type == 0x0002 or self.a_type == 0x0005:
             self.r_data = DNSName.init_from_pack(pack, index)
             index += self.r_data.get_size()
+        elif self.a_type == 0x001C:
+            if self.r_d_length != 16:
+                raise SyntaxError("Type is AAAA, length isn't 16 bytes")
+            self.r_data = DNSIP(pack, loc=index, length=self.r_d_length)
+            index += self.r_d_length
         self.s_pack_end = index
 
     def __str__(self):
@@ -349,6 +354,15 @@ class DNSResource(DNSRaw):
                 str(self.r_data),
                 self.a_ttl,
             )
+        elif self.a_type == 0x001C:
+            if self.r_d_length == 16:
+                return "Host %s | AAAA: %s | %d" % (
+                    str(self.a_name),
+                    socket.inet_ntop(socket.AF_INET6, self.r_data.get_pack()),
+                    self.a_ttl,
+                )
+            else:
+                return "Badly formed AAAA type response"
         else:
             return "Resource type >%d< not supported" % self.a_type
 
@@ -361,6 +375,10 @@ class DNSPacket(DNSRaw):
     answers = []
     authority = []
     additional = []
+
+    def __init__(self, pack=None):
+        if pack:
+            self.from_pack(pack)
 
     def add_q(self, name, q_type=0x1):
         question = DNSQuestion(name=name, qtype=q_type)
@@ -435,6 +453,8 @@ class DNSPacket(DNSRaw):
             ret_array = [
                 "--- Answer is%s Authoritative ---" % ("" if self.header.AA else " not")
             ]
+            if not self.header.an_count:
+                ret_array.append("No answers returned")
             for i in range(self.header.an_count):
                 ret_array.append(str(self.answers[i]))
         elif self.header.r_code == 1:
